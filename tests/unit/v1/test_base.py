@@ -15,6 +15,25 @@
 import tests.unit.test_base as test_base
 
 
+class FakeHM(object):
+    def __init__(self, id="hm01", name="hm01"):
+        self.id = id
+        self.name = name
+
+    def __getitem__(self, key, default=None):
+        attr = getattr(self, key, default)
+        return attr
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+
+class FakePool(object):
+    def __init__(self, id="p01", name="p01"):
+        self.id = id
+        self.name = name
+
+
 class UnitTestBase(test_base.UnitTestBase):
 
     def __init__(self, *args):
