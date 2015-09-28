@@ -15,11 +15,7 @@
 import tests.unit.test_base as test_base
 
 
-class FakeHM(object):
-    def __init__(self, id="hm01", name="hm01"):
-        self.id = id
-        self.name = name
-
+class FakeModel(dict, object):
     def __getitem__(self, key, default=None):
         attr = getattr(self, key, default)
         return attr
@@ -27,8 +23,19 @@ class FakeHM(object):
     def get(self, key, default=None):
         return getattr(self, key, default)
 
+    # def copy(self):
+    #     import copy
+    #     return copy.deepcopy(self)
 
-class FakePool(object):
+
+class FakeHM(FakeModel):
+    def __init__(self, id="hm01", name="hm01"):
+        self.id = id
+        self.name = name
+        self.pools = []
+
+
+class FakePool(FakeModel):
     def __init__(self, id="p01", name="p01"):
         self.id = id
         self.name = name
