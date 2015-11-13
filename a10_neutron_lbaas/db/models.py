@@ -75,6 +75,25 @@ class A10ApplianceConfigured(A10ApplianceSLB):
     }
 
 
+class A10ApplianceNova(A10ApplianceSLB):
+    __tablename__ = u'a10_appliances_nova'
+
+    id = sa.Column(sa.String(36),
+                   sa.ForeignKey(u'a10_appliances_slb.id'),
+                   primary_key=True,
+                   default=uuid_str,
+                   nullable=False)
+    instance_id = sa.Column(sa.String(36), nullable=False)
+
+    def device(self, context):
+        # Actually using nova appliances isn't supported yet
+        pass
+
+    __mapper_args__ = {
+        'polymorphic_identity': __tablename__
+    }
+
+
 class A10SLB(model_base.BASEV2):
     __tablename__ = u'a10_slb'
 
