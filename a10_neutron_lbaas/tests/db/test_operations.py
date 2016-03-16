@@ -125,3 +125,23 @@ class TestOperations(test_base.UnitTestBase):
         slbs = list(session.query(models.A10SLB))
 
         self.assertEqual([], slbs)
+
+    def test_delete_slb_root_v1_deletes_slb(self):
+        slb = models.default(
+            models.A10SLBRootV1,
+            pool_id='fake-pool-id',
+            a10_appliance_id='fake-a10-appliance-id'
+        )
+
+        operations1 = self.operations()
+        operations1.add(slb)
+        operations1.session.commit()
+
+        operations2 = self.operations()
+        operations2.delete_slb_root_v1(slb.pool_id)
+        operations2.session.commit()
+
+        session = self.open_session()
+        slbs = list(session.query(models.A10SLBRootV1))
+
+        self.assertEqual([], slbs)

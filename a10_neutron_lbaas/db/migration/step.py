@@ -109,6 +109,34 @@ def initialize_a10_slb_v1(conn, provider, a10):
         conn.execute(insert_vip)
 
 
+def initialize_a10_slb_root_v1(conn, provider, a10):
+    """Create a10_slb_root_v1 for existing pools"""
+
+    a10_slb_root_v1 = table(
+        'a10_slb_root_v1',
+        column('id'),
+        column('a10_appliance_id'),
+        column('pool_id'))
+    select_pools = text(
+        "SELECT pools.id, pools.tenant_id "
+        "FROM pools, providerresourceassociations p "
+        "WHERE pools.id = p.resource_id "
+        "AND p.provider_name = :provider "
+        "AND pools.id NOT IN (SELECT pool_id FROM a10_slb_root_v1)")
+    select_pools = select_pools.bindparams(provider=provider)
+    pools = list(map(dict, conn.execute(select_pools).fetchall()))
+
+    tenant_ids = [v['tenant_id'] for v in pools]
+    tenant_appliance_lookup = initialize_a10_tenant_appliance(conn, a10, tenant_ids)
+
+    for pool in pools:
+        id = str(uuid.uuid4())
+        appliance = tenant_appliance_lookup[pool['tenant_id']]
+        insert_pool = a10_slb_root_v1.insert().\
+            values(id=id, a10_appliance_id=appliance, pool_id=pool['id'])
+        conn.execute(insert_pool)
+
+
 def initialize_a10_slb_v2(conn, provider, a10):
     """Create a10_slb_v2 for existing loadbalancers"""
 

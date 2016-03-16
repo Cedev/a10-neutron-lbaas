@@ -15,6 +15,7 @@
 import logging
 
 from a10_neutron_lbaas import a10_openstack_map as a10_os
+import a10_neutron_lbaas.db.models as models
 import acos_client.errors as acos_errors
 import handler_base_v1
 import v1_context as a10
@@ -41,6 +42,12 @@ class PoolHandler(handler_base_v1.HandlerBaseV1):
                           c, context, pool)
             except acos_errors.Exists:
                 pass
+
+            slb = models.default(
+                models.A10SLBRootV1,
+                pool_id=pool['id'],
+                a10_appliance=c.appliance)
+            c.db_operations.add(slb)
 
     def update(self, context, old_pool, pool):
         # id_func = lambda x: x.get("monitor_id")
@@ -69,6 +76,8 @@ class PoolHandler(handler_base_v1.HandlerBaseV1):
                 c.client.slb.service_group.delete(self._meta_name(pool))
             except (acos_errors.NotFound, acos_errors.NoSuchServiceGroup):
                 pass
+
+            c.db_operations.delete_slb_root_v1(pool['id'])
 
     def stats(self, context, pool_id):
         tenant_id = self.neutron.pool_get_tenant_id(context, pool_id)

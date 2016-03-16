@@ -164,6 +164,37 @@ class TestCLI(test_base.UnitTestBase):
         self.run_cli('install')
         self.run_cli('downgrade', 'base')
 
+    def add_lbaasv1_pool(self, provider):
+        tenant_id = 'fake-tenant'
+        status = 'FAKE'
+
+        session = self.Session()
+        network = models.default(neutron_models.Network)
+        session.add(network)
+        subnet = models.default(
+            neutron_models.Subnet,
+            network_id=network.id,
+            ip_version=4,
+            cidr='10.0.0.0/8')
+        session.add(subnet)
+        pool = models.default(
+            lbaasv1_models.Pool,
+            tenant_id=tenant_id,
+            admin_state_up=False,
+            status=status,
+            subnet_id=subnet.id,
+            protocol="TCP",
+            lb_method="ROUND_ROBIN")
+        session.add(pool)
+        pra = models.default(
+            servicetype_db.ProviderResourceAssociation,
+            provider_name=provider,
+            resource_id=pool.id)
+        session.add(pra)
+        session.commit()
+
+        return pool.id
+
     def add_lbaasv1_vip(self, provider):
         tenant_id = 'fake-tenant'
         status = 'FAKE'
@@ -224,6 +255,21 @@ class TestCLI(test_base.UnitTestBase):
 
         return drivers
 
+    def migrate_lbaasv1_pool(self):
+        device_key = 'fake-device-key'
+        provider = 'fake-provider'
+
+        pool_id = self.add_lbaasv1_pool(provider)
+        drivers = self.lbaasv1_drivers(device_key, provider)
+
+        status = self.run_cli('install', drivers=drivers)
+
+        return {
+            'status': status,
+            'pool_id': pool_id,
+            'device_key': device_key
+        }
+
     def migrate_lbaasv1_vip(self):
         device_key = 'fake-device-key'
         provider = 'fake-provider'
@@ -238,6 +284,32 @@ class TestCLI(test_base.UnitTestBase):
             'vip_id': vip_id,
             'device_key': device_key
         }
+
+    def test_migration_populate_lbaasv1_root(self):
+        results = self.migrate_lbaasv1_pool()
+        status = results['status']
+        pool_id = results['pool_id']
+
+        self.assertEqual('UPGRADED', status['core'].status)
+        self.assertEqual('UPGRADED', status['lbaasv1'].status)
+
+        session = self.Session()
+        slb = session.query(models.A10SLBRootV1).first()
+
+        self.assertEqual(pool_id, slb.pool_id)
+
+    def test_migration_populate_lbaasv1_root_tenant_appliance(self):
+        results = self.migrate_lbaasv1_pool()
+        status = results['status']
+        device_key = results['device_key']
+
+        self.assertEqual('UPGRADED', status['core'].status)
+        self.assertEqual('UPGRADED', status['lbaasv1'].status)
+
+        session = self.Session()
+        tenant_appliance = session.query(models.A10TenantAppliance).first()
+
+        self.assertEqual(tenant_appliance.a10_appliance.device_key, device_key)
 
     def test_migration_populate_lbaasv1(self):
         results = self.migrate_lbaasv1_vip()

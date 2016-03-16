@@ -38,6 +38,10 @@ class Operations(object):
         query = self.session.query(models.A10SLBV1).filter_by(vip_id=vip_id)
         models.delete_all(self.session, query)
 
+    def delete_slb_root_v1(self, pool_id):
+        query = self.session.query(models.A10SLBRootV1).filter_by(pool_id=pool_id)
+        models.delete_all(self.session, query)
+
     def get_slb_v2(self, loadbalancer_id):
         # print 'get_slb_v2({0})'.format(repr(loadbalancer_id))
         return self.session.query(models.A10SLBV2).\

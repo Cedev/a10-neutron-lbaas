@@ -204,6 +204,24 @@ class A10SLBV2(A10SLB):
     }
 
 
+class A10SLBRootV1(model_base.BASEV2):
+    __tablename__ = u'a10_slb_root_v1'
+
+    id = sa.Column(sa.String(36), primary_key=True, nullable=False, default=uuid_str)
+    a10_appliance_id = sa.Column(sa.String(36),
+                                 sa.ForeignKey('a10_appliances_slb.id'),
+                                 nullable=False)
+    a10_appliance = relationship(A10ApplianceSLB)
+    pool_id = sa.Column(sa.String(36),
+                        sa.ForeignKey(u'pools.id'),
+                        unique=True,
+                        nullable=False)
+
+    __mapper_args__ = {
+        'polymorphic_identity': __tablename__
+    }
+
+
 class A10TenantAppliance(model_base.BASEV2):
     __tablename__ = u'a10_tenant_appliance'
 
