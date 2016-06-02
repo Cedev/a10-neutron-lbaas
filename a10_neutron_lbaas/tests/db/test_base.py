@@ -13,11 +13,10 @@
 #    under the License.
 
 from a10_neutron_lbaas.tests.db import session
-# from a10_neutron_lbaas.tests import test_case
-from a10_neutron_lbaas.tests.unit import test_base
+from a10_neutron_lbaas.tests import test_case
 
 
-class UnitTestBase(test_base.UnitTestBase):
+class UnitTestBase(test_case.TestCase):
 
     def setUp(self):
         super(UnitTestBase, self).setUp()
