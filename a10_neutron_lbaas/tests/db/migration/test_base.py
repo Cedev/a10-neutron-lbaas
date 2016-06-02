@@ -1,3 +1,5 @@
+# Copyright 2016,  A10 Networks
+#
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
 #    a copy of the License at
@@ -8,29 +10,19 @@
 #    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
-#    under the License.
+#    under the License.from neutron.db import model_base
 
-"""${message}
+import sqlalchemy.orm
 
-Revision ID: ${up_revision}
-Revises: ${down_revision | comma,n}
-Create Date: ${create_date}
-
-"""
-
-# revision identifiers, used by Alembic.
-revision = ${repr(up_revision)}
-down_revision = ${repr(down_revision)}
-branch_labels = ${repr(branch_labels)}
-depends_on = ${repr(depends_on)}
-
-from alembic import op
-import sqlalchemy as sa
-${imports if imports else ""}
-
-def upgrade():
-    ${upgrades if upgrades else "pass"}
+from a10_neutron_lbaas.tests.db import session
+from a10_neutron_lbaas.tests import test_case
 
 
-def downgrade():
-    ${downgrades if downgrades else "pass"}
+class UnitTestBase(test_case.TestCase):
+
+    def setUp(self):
+        self.connection = session.fake_migration_connection()
+        self.Session = sqlalchemy.orm.sessionmaker(bind=self.connection)
+
+    def tearDown(self):
+        self.connection.close()
