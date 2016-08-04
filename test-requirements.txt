@@ -7,7 +7,6 @@ nose
 nose-exclude
 pifpaf
 pymysql
-sqlalchemy-utils
 # TODO(dougwig) -- can we remove this?
 -e git+https://github.com/openstack/neutron#egg=neutron
 
