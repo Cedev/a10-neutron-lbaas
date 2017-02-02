@@ -12,26 +12,192 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.from neutron.db import model_base
 
-from a10_neutron_lbaas.tests.db.neutron_ext.db import test_a10_device_instance
+import mock
+import uuid
+
+import a10_openstack_lib.resources.a10_device_instance as resources
 
 import a10_neutron_lbaas.neutron_ext.common.constants as constants
+from a10_neutron_lbaas.neutron_ext.extensions import a10DeviceInstance
 import a10_neutron_lbaas.neutron_ext.services.a10_device_instance.plugin as plugin
-
-import a10_neutron_lbaas.vthunder.instance_manager as instance_manager
-
-import mock
+import a10_neutron_lbaas.tests.db.test_base as test_base
+import a10_neutron_lbaas.tests.unit.unit_config.helper as unit_config
 
 
-class TestPlugin(test_a10_device_instance.TestA10DeviceInstanceDbMixin):
+class TestPlugin(test_base.UnitTestBase):
 
     def setUp(self):
         super(TestPlugin, self).setUp()
-        self.plugin = plugin.A10DeviceInstancePlugin()
-        self.target = self.plugin
 
         self.instance_manager = mock.MagicMock()
-        instance_manager.InstanceManager.from_config = mock.MagicMock(
+        self.instance_manager.create_device_instance.side_effect = self.fake_instance
+
+        self._im_patcher = mock.patch(
+            'a10_neutron_lbaas.vthunder.instance_manager.InstanceManager.from_config',
             return_value=self.instance_manager)
+        self._im_patcher.start()
+
+        self._config_cleanup = unit_config.use_config_dir()
+
+        self.plugin = plugin.A10DeviceInstancePlugin()
+
+    def tearDown(self):
+        self._config_cleanup()
+        self._im_patcher.stop()
+        super(TestPlugin, self).tearDown()
+
+    def fake_instance(self, *args, **kwargs):
+        return {
+            'nova_instance_id': str(uuid.uuid4()),
+            'ip_address': '10.11.12.13'
+        }
+
+    def context(self):
+        session = self.open_session()
+        context = mock.Mock(session=session, tenant_id='fake-tenant-id')
+        return context
+
+    def fake_deviceinstance(self):
+        return {
+            'name': 'fake-name',
+            'host': 'fake-host',
+            'api_version': 'fake-version',
+            'username': 'fake-username',
+            'password': 'fake-password',
+            'protocol': 'http',
+            'port': 12345
+        }
+
+    def blank(self, resource):
+        attr_map = resources.RESOURCE_ATTRIBUTE_MAP[resource]
+        return dict((k, attr_map[k]['default'])
+                    for k in attr_map
+                    if 'default' in attr_map[k] and not callable(attr_map[k]['default']))
+
+    def default_options(self):
+        return self.blank(resources.RESOURCES)
+
+    def envelope(self, body):
+        return {resources.RESOURCE: body}
+
+    def test_create_a10_device_instance(self):
+        instance = {}
+        context = self.context()
+        result = self.plugin.create_a10_device_instance(context, self.envelope(instance))
+        self.assertIsNotNone(result['id'])
+
+        expected = self.default_options()
+        expected.update(instance)
+        expected.update(
+            {
+                'id': result['id'],
+                'nova_instance_id': result['nova_instance_id'],
+                'host': result['host'],
+                'tenant_id': context.tenant_id,
+                'project_id': context.tenant_id
+
+            })
+        self.assertEqual(expected, result)
+
+    def test_create_a10_device_instance_options(self):
+        instance = self.fake_deviceinstance()
+        context = self.context()
+        result = self.plugin.create_a10_device_instance(context, self.envelope(instance))
+        self.assertIsNotNone(result['id'])
+
+        expected = instance.copy()
+        expected.update(
+            {
+                'id': result['id'],
+                'nova_instance_id': result['nova_instance_id'],
+                'host': result['host'],
+                'tenant_id': context.tenant_id,
+                'project_id': context.tenant_id
+            })
+
+        self.assertEqual(expected, result)
+
+    def test_create_a10_device_instance_defaults(self):
+        instance = {}
+        context = self.context()
+        result = self.plugin.create_a10_device_instance(context, self.envelope(instance))
+        self.assertIsNotNone(result['id'])
+
+        expected = self.default_options()
+        expected_defaults = {
+            'port': 80,
+            'protocol': 'http'
+        }
+        expected.update(expected_defaults)
+        expected.update(instance)
+        expected.update(
+            {
+                'id': result['id'],
+                'nova_instance_id': result['nova_instance_id'],
+                'host': result['host'],
+                'tenant_id': context.tenant_id,
+                'project_id': context.tenant_id
+
+            })
+        self.assertEqual(expected, result)
+
+    def test_update_a10_device_instance_options(self):
+        instance = {}
+        create_context = self.context()
+        create_result = self.plugin.create_a10_device_instance(create_context,
+                                                               self.envelope(instance))
+        self.assertIsNotNone(create_result['id'])
+
+        request = self.fake_deviceinstance()
+        context = self.context()
+        result = self.plugin.update_a10_device_instance(context,
+                                                        create_result['id'],
+                                                        self.envelope(instance))
+
+        expected = create_result.copy()
+        expected.update(request)
+
+        self.assertEqual(expected, result)
+
+    def test_get_a10_device_instance(self):
+        instance = self.fake_deviceinstance()
+        create_context = self.context()
+        create_result = self.plugin.create_a10_device_instance(create_context,
+                                                               self.envelope(instance))
+
+        context = self.context()
+        result = self.plugin.get_a10_device_instance(context, create_result['id'])
+
+        self.assertEqual(create_result, result)
+
+    def test_get_a10_device_instance_not_found(self):
+        context = self.context()
+        self.assertRaises(
+            a10DeviceInstance.A10DeviceInstanceNotFoundError,
+            self.plugin.get_a10_device_instance,
+            context,
+            'fake-deviceinstance-id')
+
+    def test_get_a10_device_instances(self):
+        instance = self.fake_deviceinstance()
+        create_context = self.context()
+        create_result = self.plugin.create_a10_device_instance(create_context,
+                                                               self.envelope(instance))
+        create_context.session.commit()
+
+        context = self.context()
+        result = self.plugin.get_a10_device_instances(context)
+
+        self.assertEqual([create_result], result)
+
+    def test_get_plugin_name(self):
+        self.assertIsNot(self.plugin.get_plugin_name(), None)
+
+    def test_get_plugin_description(self):
+        self.assertIsNot(self.plugin.get_plugin_description(), None)
+
+    def test_get_plugin_type(self):
+        self.assertEqual(self.plugin.get_plugin_type(), constants.A10_DEVICE_INSTANCE)
 
     def _build_instance(self):
         return {
@@ -51,12 +217,12 @@ class TestPlugin(test_a10_device_instance.TestA10DeviceInstanceDbMixin):
     def test_create_calls_instance_manager(self):
         context = self.context()
         context.session = mock.MagicMock()
-        self.target.create_a10_device_instance(context, self._build_instance())
+        self.plugin.create_a10_device_instance(context, self._build_instance())
         self.assertTrue(self.instance_manager.create_device_instance.called)
 
     def test_delete_calls_instance_manager(self):
         context = self.context()
         context.session = mock.MagicMock()
-        self.target.delete_a10_device_instance(context, 1)
+        self.plugin.delete_a10_device_instance(context, 1)
         delete_call = self.instance_manager.delete_instance
         self.assertTrue(delete_call.called)

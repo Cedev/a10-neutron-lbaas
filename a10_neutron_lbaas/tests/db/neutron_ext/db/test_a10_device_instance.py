@@ -21,23 +21,17 @@ import a10_neutron_lbaas.tests.db.test_base as test_base
 from a10_neutron_lbaas.neutron_ext.common import constants
 from a10_neutron_lbaas.neutron_ext.db import a10_device_instance as a10_device_instance
 from a10_neutron_lbaas.neutron_ext.extensions import a10DeviceInstance
-from neutron.plugins.common import constants as nconstants
 
 
-class TestA10DeviceInstanceDbMixin(test_base.UnitTestBase):
+class TestA10DeviceInstanceDb(test_base.UnitTestBase):
 
     def setUp(self):
-        super(TestA10DeviceInstanceDbMixin, self).setUp()
-        self._nm_patcher = mock.patch('neutron.manager.NeutronManager')
-        nm = self._nm_patcher.start()
-        nm.get_service_plugins.return_value = {
-            nconstants.LOADBALANCERV2: mock.MagicMock()
-        }
+        super(TestA10DeviceInstanceDb, self).setUp()
 
         self.plugin = a10_device_instance.A10DeviceInstanceDbMixin()
 
     def tearDown(self):
-        super(TestA10DeviceInstanceDbMixin, self).tearDown()
+        super(TestA10DeviceInstanceDb, self).tearDown()
 
     def context(self):
         session = self.open_session()
@@ -58,8 +52,10 @@ class TestA10DeviceInstanceDbMixin(test_base.UnitTestBase):
             'v_method': 'LSI',
             'shared_partition': 'shared',
             'write_memory': False,
-            'nova_instance_id': None,
-            'project_id': 'fake-tenant-id'
+            'nova_instance_id': 'fake-instance-id',
+            'project_id': 'fake-tenant-id',
+            'protocol': 'https',
+            'port': 443
         }
 
     def fake_deviceinstance_options(self):
@@ -76,15 +72,6 @@ class TestA10DeviceInstanceDbMixin(test_base.UnitTestBase):
 
     def envelope(self, body):
         return {a10_device_instance_resources.RESOURCE: body}
-
-
-class TestA10DeviceInstanceDb(TestA10DeviceInstanceDbMixin):
-
-    def setUp(self):
-        super(TestA10DeviceInstanceDb, self).setUp()
-
-    def tearDown(self):
-        super(TestA10DeviceInstanceDb, self).tearDown()
 
     def test_a10_device_instance(self):
         instance = self.fake_deviceinstance()
